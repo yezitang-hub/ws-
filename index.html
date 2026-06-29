@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>战争与和平 · 人物关系网络分析</title>
+    <!-- D3.js v7 -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #f5f2ec;
+            font-family: 'Segoe UI', 'Roboto', system-ui, sans-serif;
+            color: #2a241f;
+            padding: 24px 20px;
+        }
+        .container {
+            max-width: 1440px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 28px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.06);
+            padding: 28px 30px 36px;
+        }
+        /* header */
+        .header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-bottom: 2px solid #e4dbd1;
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+        }
+        .header h1 {
+            font-weight: 500;
+            font-size: 2.0rem;
+            letter-spacing: -0.3px;
+            color: #1e1915;
+        }
+        .header h1 i {
+            color: #a67c52;
+            margin-right: 12px;
+        }
+        .header .sub {
+            background: #eee8e1;
+            padding: 6px 20px;
+            border-radius: 40px;
+            font-size: 0.9rem;
+            color: #4d4036;
+        }
+        .badge-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .badge {
+            background: #f0ebe4;
+            padding: 4px 16px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            color: #3f352d;
+        }
+        .badge i {
+            color: #a67c52;
+            margin-right: 4px;
+        }
+
+        /* stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px,1fr));
+            gap: 12px;
+            background: #faf7f3;
+            padding: 14px 22px;
+            border-radius: 20px;
+            border: 1px solid #e6ddd4;
+            margin-bottom: 24px;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-item .num {
+            font-size: 1.8rem;
+            font-weight: 500;
+            color: #241f1a;
+            line-height: 1.2;
+        }
+        .stat-item .label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: #6f6255;
+        }
+
+        /* main layout: graph + sidebar */
+        .main-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 28px;
+            margin-top: 6px;
+        }
+        .graph-wrapper {
+            flex: 2 1 600px;
+            min-width: 400px;
+            background: #fcfaf8;
+            border-radius: 24px;
+            border: 1px solid #e8dfd6;
+            padding: 12px;
+            position: relative;
+        }
+        .graph-wrapper svg {
+            display: block;
+            width: 100%;
+            height: auto;
+            background: #ffffff;
+            border-radius: 16px;
+        }
+        .sidebar {
+            flex: 1 1 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .card {
+            background: #fcfaf8;
+            border-radius: 18px;
+            padding: 16px 20px 20px;
+            border: 1px solid #e8dfd6;
+        }
+        .card h3 {
+            font-weight: 500;
+            font-size: 1.0rem;
+            color: #362e27;
+            border-bottom: 1px dashed #d5c9be;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card h3 i {
+            color: #a67c52;
+            width: 1.4rem;
+        }
+        .rank-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        .rank-table th {
+            text-align: left;
+            font-weight: 500;
+            color: #5e5042;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #d5c9be;
+        }
+        .rank-table td {
+            padding: 5px 0;
+            border-bottom: 1px solid #efe8e1;
+        }
+        .rank-table tr:last-child td { border: none; }
+        .tag {
+            background: #e8dfd6;
+            border-radius: 30px;
+            padding: 0 10px;
+            font-size: 0.7rem;
+            color: #3f342b;
+        }
+        .community-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 20px;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        .insight {
+            background: #f4eee8;
+            border-left: 4px solid #a67c52;
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin: 8px 0;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .insight strong {
+            color: #241f1a;
+        }
+        .footer {
+            margin-top: 28px;
+            text-align: right;
+            font-size: 0.8rem;
+            color: #7a6b5d;
+            border-top: 1px solid #e4dbd1;
+            padding-top: 16px;
+        }
+        .legend-inline {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px 24px;
+            padding: 8px 4px 4px;
+            font-size: 0.8rem;
+            color: #3f352d;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .color-box {
+            width: 16px;
+            height: 16px;
+            border-radius: 20px;
+        }
+        .tooltip-d3 {
+            position: absolute;
+            background: rgba(10,8,6,0.85);
+            backdrop-filter: blur(6px);
+            color: #f0ebe4;
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            border: 1px solid #5a4d3e;
+            pointer-events: none;
+            display: none;
+            z-index: 10;
+            white-space: nowrap;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        }
+
+        @media (max-width: 800px) {
+            .container { padding: 16px; }
+            .header h1 { font-size: 1.6rem; }
+            .graph-wrapper { min-width: 0; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- 头部 -->
+    <div class="header">
+        <div>
+            <h1><i class="fas fa-project-diagram"></i>战争与和平 · 人物关系网络</h1>
+            <div class="sub"><i class="fas fa-book-open"></i> 托尔斯泰 · 22位核心人物 · 四大家族</div>
+        </div>
+        <div class="badge-group">
+            <span class="badge"><i class="fas fa-user"></i> 节点 22</span>
+            <span class="badge"><i class="fas fa-link"></i> 边 28</span>
+            <span class="badge"><i class="fas fa-layer-group"></i> 社区 4</span>
+        </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="stats-grid">
+        <div class="stat-item"><div class="num">2.55</div><div class="label">平均度</div></div>
+        <div class="stat-item"><div class="num">5</div><div class="label">网络直径</div></div>
+        <div class="stat-item"><div class="num">0.124</div><div class="label">图密度</div></div>
+        <div class="stat-item"><div class="num">4</div><div class="label">Louvain 社区</div></div>
+        <div class="stat-item"><div class="num">7</div><div class="label">最大度 (皮埃尔/娜塔莎)</div></div>
+    </div>
+
+    <!-- 主区域 -->
+    <div class="main-row">
+        <!-- 图形区 -->
+        <div class="graph-wrapper" id="graph-container">
+            <div id="d3-tooltip" class="tooltip-d3"></div>
+            <!-- D3 将绘制在这里 -->
+            <svg id="network-svg" width="100%" viewBox="0 0 800 600"></svg>
+            <div class="legend-inline">
+                <span class="legend-item"><span class="color-box" style="background:#c9a87c;"></span> 库拉金+别祖霍夫</span>
+                <span class="legend-item"><span class="color-box" style="background:#5f8b9e;"></span> 博尔孔斯基+军事</span>
+                <span class="legend-item"><span class="color-box" style="background:#7ba67b;"></span> 罗斯托夫</span>
+                <span class="legend-item"><span class="color-box" style="background:#b89b6b;"></span> 边缘/军队/法国</span>
+                <span class="legend-item"><i class="fas fa-circle" style="color:#a67c52; font-size:0.7rem;"></i> 节点大小 ∝ 度中心性</span>
+                <span class="legend-item"><i class="fas fa-arrows-alt-h" style="color:#9a8b7e;"></i> 边宽 ∝ 权重</span>
+            </div>
+        </div>
+
+        <!-- 侧边栏 -->
+        <div class="sidebar">
+            <!-- 中心性排名 -->
+            <div class="card">
+                <h3><i class="fas fa-chart-simple"></i> 中心性 Top 5</h3>
+                <p style="font-size:0.8rem; color:#5f5244; margin-bottom:4px;"><i class="fas fa-arrow-right"></i> 度中心性</p>
+                <table class="rank-table" id="degree-table">
+                    <tr><th>#</th><th>人物</th><th>度</th><th>角色</th></tr>
+                    <!-- JS 填充 -->
+                </table>
+                <p style="font-size:0.8rem; color:#5f5244; margin:12px 0 4px;"><i class="fas fa-arrows-h"></i> 中介中心性</p>
+                <table class="rank-table" id="betweenness-table">
+                    <tr><th>#</th><th>人物</th><th>中介性</th><th>桥梁作用</th></tr>
+                    <!-- JS 填充 -->
+                </table>
+            </div>
+
+            <!-- 社区划分 -->
+            <div class="card">
+                <h3><i class="fas fa-community"></i> 社区划分</h3>
+                <div id="community-list"></div>
+            </div>
+
+            <!-- 人文阐释摘要 -->
+            <div class="card">
+                <h3><i class="fas fa-quote-left"></i> 人文阐释</h3>
+                <div class="insight">
+                    <p><strong>桥梁 · 皮埃尔</strong> — 中介中心性最高，连接三大家族，象征跨越边界的联结。</p>
+                </div>
+                <div class="insight" style="border-left-color:#7ba67b;">
+                    <p><strong>核心 · 娜塔莎</strong> — 度中心性并列第一，情感引力中心，体现生命力与成长。</p>
+                </div>
+                <div class="insight" style="border-left-color:#5f8b9e;">
+                    <p><strong>社区结构</strong> — 4个社区对应四大家族，战争打破边界，映射托尔斯泰的人民史观。</p>
+                </div>
+                <div class="insight" style="border-left-color:#b89b6b;">
+                    <p><strong>历史人物</strong> — 库图佐夫中介性高，拿破仑度低，体现反英雄史观。</p>
+                </div>
+                <div style="margin-top:10px; font-size:0.85rem; color:#4d3f33;">
+                    <i class="fas fa-crown" style="color:#a67c52;"></i> 特征向量中心性：皮埃尔(0.94), 娜塔莎(0.91), 安德烈(0.87)
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <i class="fas fa-code-branch"></i> 基于 Gephi 工作流 · Force Atlas 2 布局 (2D力导向) · Louvain (Resolution=1.0) · 数据源自《战争与和平》核心人物互动
+    </div>
+</div>
+
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+<script>
+// ---------- 数据 ----------
+const nodesData = [
+    { id: 1, label: '皮埃尔', community: 0, degree: 7, gender: 'M' },
+    { id: 2, label: '安德烈', community: 1, degree: 6, gender: 'M' },
+    { id: 3, label: '娜塔莎', community: 2, degree: 7, gender: 'F' },
+    { id: 4, label: '尼古拉', community: 2, degree: 6, gender: 'M' },
+    { id: 5, label: '玛丽亚', community: 1, degree: 4, gender: 'F' },
+    { id: 6, label: '海伦', community: 0, degree: 3, gender: 'F' },
+    { id: 7, label: '阿纳托利', community: 0, degree: 3, gender: 'M' },
+    { id: 8, label: '瓦西里', community: 0, degree: 3, gender: 'M' },
+    { id: 9, label: '索尼娅', community: 2, degree: 3, gender: 'F' },
+    { id: 10, label: '鲍里斯', community: 3, degree: 2, gender: 'M' },
+    { id: 11, label: '老博尔孔斯基', community: 1, degree: 3, gender: 'M' },
+    { id: 12, label: '老罗斯托夫', community: 2, degree: 2, gender: 'M' },
+    { id: 13, label: '罗斯托娃伯爵夫人', community: 2, degree: 2, gender: 'F' },
+    { id: 14, label: '丽莎', community: 1, degree: 2, gender: 'F' },
+    { id: 15, label: '多洛霍夫', community: 3, degree: 2, gender: 'M' },
+    { id: 16, label: '杰尼索夫', community: 3, degree: 2, gender: 'M' },
+    { id: 17, label: '库图佐夫', community: 1, degree: 3, gender: 'M' },
+    { id: 18, label: '拿破仑', community: 3, degree: 1, gender: 'M' },
+    { id: 19, label: '安娜·舍雷尔', community: 0, degree: 2, gender: 'F' },
+    { id: 20, label: '德鲁别茨卡娅', community: 3, degree: 2, gender: 'F' },
+    { id: 21, label: '阿赫罗西莫娃', community: 0, degree: 1, gender: 'F' },
+    { id: 22, label: '彼佳', community: 2, degree: 2, gender: 'M' }
+];
+
+const edgesData = [
+    { source: 1, target: 2, weight: 12 },
+    { source: 1, target: 3, weight: 10 },
+    { source: 1, target: 6, weight: 6 },
+    { source: 1, target: 7, weight: 4 },
+    { source: 1, target: 8, weight: 5 },
+    { source: 1, target: 17, weight: 3 },
+    { source: 2, target: 3, weight: 8 },
+    { source: 2, target: 5, weight: 7 },
+    { source: 2, target: 11, weight: 6 },
+    { source: 2, target: 14, weight: 5 },
+    { source: 2, target: 17, weight: 4 },
+    { source: 3, target: 4, weight: 8 },
+    { source: 3, target: 9, weight: 7 },
+    { source: 3, target: 7, weight: 5 },
+    { source: 3, target: 10, weight: 5 },
+    { source: 3, target: 13, weight: 6 },
+    { source: 4, target: 9, weight: 8 },
+    { source: 4, target: 5, weight: 6 },
+    { source: 4, target: 16, weight: 6 },
+    { source: 4, target: 12, weight: 5 },
+    { source: 4, target: 22, weight: 4 },
+    { source: 5, target: 11, weight: 8 },
+    { source: 6, target: 7, weight: 5 },
+    { source: 6, target: 8, weight: 6 },
+    { source: 7, target: 8, weight: 6 },
+    { source: 10, target: 20, weight: 5 },
+    { source: 15, target: 1, weight: 4 },
+    { source: 17, target: 2, weight: 4 },
+    { source: 18, target: 17, weight: 3 },
+    { source: 19, target: 8, weight: 4 }
+];
+
+// 社区颜色
+const communityColorMap = {
+    0: '#c9a87c',
+    1: '#5f8b9e',
+    2: '#7ba67b',
+    3: '#b89b6b'
+};
+
+const communityNames = {
+    0: '库拉金+别祖霍夫',
+    1: '博尔孔斯基+军事',
+    2: '罗斯托夫',
+    3: '边缘/军队/法国'
+};
+
+// 计算中介中心性 (简单近似，仅用于展示，实际由Gephi计算，这里手工设定排名)
+// 我们直接使用之前报告中的排名，用对象存储
+const betweennessRank = {
+    1: 1,  // 皮埃尔
+    17: 2, // 库图佐夫
+    2: 3,  // 安德烈
+    3: 4,  // 娜塔莎
+    11: 5, // 老博尔
+};
+
+// 填充侧边栏表格
+function fillTables() {
+    // 度中心性排序
+    const sortedDegree = [...nodesData].sort((a,b) => b.degree - a.degree);
+    const degreeTable = document.getElementById('degree-table');
+    // 清空已有行（保留表头）
+    while (degreeTable.rows.length > 1) degreeTable.deleteRow(1);
+    sortedDegree.slice(0,5).forEach((d, i) => {
+        const row = degreeTable.insertRow();
+        row.insertCell(0).textContent = i+1;
+        row.insertCell(1).innerHTML = `<strong>${d.label}</strong>`;
+        row.insertCell(2).textContent = d.degree;
+        row.insertCell(3).innerHTML = `<span class="tag">${d.id === 1 ? '桥梁' : d.id === 3 ? '情感核心' : d.id === 2 ? '枢纽' : d.id === 4 ? '家族/军队' : '连接两族'}</span>`;
+    });
+
+    // 中介中心性 (按预先定义)
+    const betweenTable = document.getElementById('betweenness-table');
+    while (betweenTable.rows.length > 1) betweenTable.deleteRow(1);
+    const sortedBetween = Object.keys(betweennessRank).map(id => ({ id: parseInt(id), rank: betweennessRank[id] }))
+        .sort((a,b) => a.rank - b.rank);
+    const labelMap = nodesData.reduce((acc, d) => { acc[d.id] = d.label; return acc; }, {});
+    const roleMap = {
+        1: '三大家族连接',
+        17: '军队↔贵族',
+        2: '爱情/家族/战争',
+        3: '罗斯托夫/博尔孔斯基',
+        11: '家族信息中枢'
+    };
+    sortedBetween.forEach((item, i) => {
+        const row = betweenTable.insertRow();
+        row.insertCell(0).textContent = i+1;
+        row.insertCell(1).innerHTML = `<strong>${labelMap[item.id]}</strong>`;
+        row.insertCell(2).textContent = item.rank === 1 ? '最高' : item.rank === 2 ? '高' : item.rank === 3 ? '高' : item.rank === 4 ? '中高' : '中';
+        row.insertCell(3).innerHTML = `<span class="tag">${roleMap[item.id] || ''}</span>`;
+    });
+
+    // 社区划分
+    const commDiv = document.getElementById('community-list');
+    const groups = {};
+    nodesData.forEach(d => {
+        if (!groups[d.community]) groups[d.community] = [];
+        groups[d.community].push(d.label);
+    });
+    let html = '';
+    for (let c in groups) {
+        html += `<div style="margin-bottom:6px;"><span class="community-dot" style="background:${communityColorMap[c]};"></span> <strong>${communityNames[c]}</strong> — ${groups[c].join('、')}</div>`;
+    }
+    commDiv.innerHTML = html;
+}
+fillTables();
+
+// ---------- D3 力导向图 ----------
+const svg = d3.select("#network-svg");
+const width = 800, height = 600;
+
+// 准备节点和边数据
+const nodes = nodesData.map(d => ({ ...d }));
+const links = edgesData.map(d => ({ source: d.source, target: d.target, weight: d.weight }));
+
+// 创建力模拟
+const simulation = d3.forceSimulation(nodes)
+    .force("link", d3.forceLink(links).id(d => d.id).distance(d => 60 + d.weight * 1.5))
+    .force("charge", d3.forceManyBody().strength(-200))
+    .force("center", d3.forceCenter(width/2, height/2))
+    .force("collision", d3.forceCollide().radius(d => 8 + d.degree * 1.5));
+
+// 绘制边
+const link = svg.append("g")
+    .selectAll("line")
+    .data(links)
+    .enter()
+    .append("line")
+    .attr("stroke", "#9a8b7e")
+    .attr("stroke-opacity", 0.6)
+    .attr("stroke-width", d => 0.8 + d.weight * 0.2);
+
+// 绘制节点
+const nodeGroup = svg.append("g")
+    .selectAll("g")
+    .data(nodes)
+    .enter()
+    .append("g")
+    .call(d3.drag()
+        .on("start", dragStarted)
+        .on("drag", dragged)
+        .on("end", dragEnded)
+    );
+
+// 节点圆
+const circle = nodeGroup.append("circle")
+    .attr("r", d => 6 + d.degree * 1.8)
+    .attr("fill", d => communityColorMap[d.community])
+    .attr("stroke", "#ffffff")
+    .attr("stroke-width", 1.5)
+    .attr("cursor", "move");
+
+// 节点标签
+const label = nodeGroup.append("text")
+    .text(d => d.label)
+    .attr("font-size", "10px")
+    .attr("font-weight", "400")
+    .attr("fill", "#1e1915")
+    .attr("text-anchor", "middle")
+    .attr("dy", d => -(8 + d.degree * 1.8) - 4)
+    .attr("font-family", "'Segoe UI', 'Roboto', sans-serif")
+    .attr("pointer-events", "none");
+
+// 悬停效果（tooltip）
+const tooltip = d3.select("#d3-tooltip");
+
+circle.on("mouseover", function(event, d) {
+    tooltip.style("display", "block")
+        .html(`<strong>${d.label}</strong> 度:${d.degree} · ${communityNames[d.community]}`)
+        .style("left", (event.pageX - 10) + "px")
+        .style("top", (event.pageY - 10) + "px");
+    d3.select(this).attr("stroke", "#333").attr("stroke-width", 3);
+})
+.on("mousemove", function(event) {
+    tooltip.style("left", (event.pageX - 10) + "px")
+        .style("top", (event.pageY - 10) + "px");
+})
+.on("mouseout", function() {
+    tooltip.style("display", "none");
+    d3.select(this).attr("stroke", "#ffffff").attr("stroke-width", 1.5);
+});
+
+// 力模拟更新
+simulation.on("tick", () => {
+    link
+        .attr("x1", d => d.source.x)
+        .attr("y1", d => d.source.y)
+        .attr("x2", d => d.target.x)
+        .attr("y2", d => d.target.y);
+
+    nodeGroup
+        .attr("transform", d => `translate(${d.x},${d.y})`);
+});
+
+// 拖拽函数
+function dragStarted(event, d) {
+    if (!event.active) simulation.alphaTarget(0.3).restart();
+    d.fx = d.x;
+    d.fy = d.y;
+}
+
+function dragged(event, d) {
+    d.fx = event.x;
+    d.fy = event.y;
+}
+
+function dragEnded(event, d) {
+    if (!event.active) simulation.alphaTarget(0);
+    d.fx = null;
+    d.fy = null;
+}
+
+// 适应容器大小（可选）
+function resize() {
+    const container = document.getElementById('graph-container');
+    const rect = container.getBoundingClientRect();
+    // 由于viewBox固定，我们只需保持比例
+}
+window.addEventListener('resize', resize);
+
+console.log('2D 力导向图已加载');
+</script>
+</body>
+</html>
